@@ -8,6 +8,7 @@ import base64
 import datetime
 from memo_helpers.id_search_memo import id_search_memo
 from memo_helpers.md_converter import md_converter
+from memo_helpers.run_osascript import run_osascript
 
 
 def _decode_image_to_tempfile(img_html):
@@ -25,21 +26,17 @@ def _decode_image_to_tempfile(img_html):
 
 def _reattach_images(note_id, surviving_images):
     """Delete orphaned attachments and re-add surviving images."""
-    subprocess.run(
-        [
-            "osascript",
-            "-e",
-            f"""
+    run_osascript(
+        """
+        set theNoteId to item 1 of argv
         tell application "Notes"
-            set n to first note whose id is "{note_id}"
+            set n to first note whose id is theNoteId
             repeat while (count of attachments of n) > 0
                 delete first attachment of n
             end repeat
         end tell
     """,
-        ],
-        capture_output=True,
-        text=True,
+        note_id,
     )
 
     expected = 0
@@ -48,22 +45,20 @@ def _reattach_images(note_id, surviving_images):
         if not filepath:
             continue
         expected += 1
-        subprocess.run(
-            [
-                "osascript",
-                "-e",
-                f"""
+        run_osascript(
+            f"""
+            set theNoteId to item 1 of argv
+            set theFilePath to item 2 of argv
             tell application "Notes"
-                set n to first note whose id is "{note_id}"
-                make new attachment at end of attachments of n with data POSIX file "{filepath}"
+                set n to first note whose id is theNoteId
+                make new attachment at end of attachments of n with data POSIX file theFilePath
                 if (count of attachments of n) > {expected} then
                     delete last attachment of n
                 end if
             end tell
         """,
-            ],
-            capture_output=True,
-            text=True,
+            note_id,
+            filepath,
         )
         os.unlink(filepath)
 
@@ -108,15 +103,15 @@ def edit_note(note_id):
 
     edited_html = mistune.markdown(edited_md)
 
-    update_script = f"""
+    update_script = """
+        set theNoteId to item 1 of argv
+        set theBody to item 2 of argv
         tell application "Notes"
-            set selectedNote to first note whose id is "{note_id}"
-            set body of selectedNote to "{edited_html}"
+            set selectedNote to first note whose id is theNoteId
+            set body of selectedNote to theBody
         end tell
         """
-    process = subprocess.run(
-        ["osascript", "-e", update_script], capture_output=True, text=True
-    )
+    process = run_osascript(update_script, note_id, edited_html)
     if process.returncode != 0:
         click.secho("\nError: Could not update note.\n", fg="red")
         click.secho(process.stderr, fg="red")
@@ -136,15 +131,15 @@ def edit_note(note_id):
 def edit_reminder(reminder_id, part_to_edit):
     if part_to_edit == "title":
         new_title = click.prompt("\nEnter the new title")
-        script = f"""
+        script = """
+            set theReminderId to item 1 of argv
+            set theTitle to item 2 of argv
             tell application "Reminders"
-                set selectedReminder to first reminder whose id is "{reminder_id}"
-                set name of selectedReminder to "{new_title}"
+                set selectedReminder to first reminder whose id is theReminderId
+                set name of selectedReminder to theTitle
             end tell
             """
-        result = subprocess.run(
-            ["osascript", "-e", script], capture_output=True, text=True
-        )
+        result = run_osascript(script, reminder_id, new_title)
         if result.returncode == 0:
             click.secho("\nReminder title updated.", fg="green")
         else:
@@ -161,8 +156,9 @@ def edit_reminder(reminder_id, part_to_edit):
         minute = due_dt.minute
 
         script = f"""
+        set theReminderId to item 1 of argv
         tell application "Reminders"
-            set selectedReminder to first reminder whose id is "{reminder_id}"
+            set selectedReminder to first reminder whose id is theReminderId
             set dueDate to current date
             set year of dueDate to {year}
             set month of dueDate to {month}
@@ -172,9 +168,7 @@ def edit_reminder(reminder_id, part_to_edit):
         end tell
         """
 
-        result = subprocess.run(
-            ["osascript", "-e", script], capture_output=True, text=True
-        )
+        result = run_osascript(script, reminder_id)
         if result.returncode == 0:
             click.secho("\nReminder date updated.", fg="green")
         else:

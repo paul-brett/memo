@@ -1,10 +1,12 @@
-import subprocess
 import click
+from memo_helpers.run_osascript import run_osascript
 
 
 def move_note(note_id: str, target_folder: str):
 
-    script = f'''
+    script = """
+    set theNoteId to item 1 of argv
+    set theTargetFolder to item 2 of argv
     tell application "Notes"
         set noteToMove to missing value
         set noteName to ""
@@ -13,7 +15,7 @@ def move_note(note_id: str, target_folder: str):
         repeat with acc in accounts
             repeat with f in folders of acc
                 try
-                    set n to first note of f whose id is "{note_id}"
+                    set n to first note of f whose id is theNoteId
                     set noteToMove to n
                     set noteName to name of n
                     set noteBody to body of n
@@ -26,16 +28,16 @@ def move_note(note_id: str, target_folder: str):
         if noteToMove is not missing value then
             set destinationFolder to missing value
             try
-                set destinationFolder to folder "{target_folder}" of accToUse
+                set destinationFolder to folder theTargetFolder of accToUse
             on error
-                set destinationFolder to make new folder with properties {{name:"{target_folder}"}} at accToUse
+                set destinationFolder to make new folder with properties {name:theTargetFolder} at accToUse
             end try
-            make new note at destinationFolder with properties {{name:noteName, body:noteBody}}
+            make new note at destinationFolder with properties {name:noteName, body:noteBody}
             delete noteToMove
         end if
     end tell
-    '''
-    result = subprocess.run(["osascript", "-e", script], capture_output=True, text=True)
+    """
+    result = run_osascript(script, note_id, target_folder)
     if result.returncode == 0:
         click.secho(f'\n✅ The note was moved to "{target_folder}" folder.', fg="green")
     else:

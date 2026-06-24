@@ -66,13 +66,13 @@ def test_notes_edit_indexerror():
     assert result.exit_code == 1
 
 
-@patch("memo_helpers.delete_memo.subprocess.run")
+@patch("memo_helpers.delete_memo.run_osascript")
 @patch("memo.memo.notes_folders")
 @patch("memo.memo.get_note")
-def test_notes_delete(mock_get_note, mock_notes_folders, mock_subprocess):
+def test_notes_delete(mock_get_note, mock_notes_folders, mock_run):
     mock_get_note.return_value = [FAKE_NOTE_MAP, FAKE_NOTES_LIST]
     mock_notes_folders.return_value = FAKE_FOLDERS
-    mock_subprocess.return_value = MagicMock(returncode=0, stderr="", stdout="")
+    mock_run.return_value = MagicMock(returncode=0, stderr="", stdout="")
     runner = CliRunner()
     result = runner.invoke(cli, ["notes", "--delete"], input="1")
     assert result.exit_code == 0
