@@ -4,6 +4,7 @@ import tempfile
 import mistune
 import os
 from datetime import datetime
+from memo_helpers.run_osascript import run_osascript
 
 
 def add_note(folder_name):
@@ -24,18 +25,18 @@ def add_note(folder_name):
 
     note_html = mistune.markdown(note_md)
 
-    script = f"""
+    script = """
+        set theFolderName to item 1 of argv
+        set theBody to item 2 of argv
         tell application "Notes"
-            set targetFolder to first folder whose name is "{folder_name}"
+            set targetFolder to first folder whose name is theFolderName
             tell targetFolder
-                make new note with properties {{body:"{note_html}"}}
+                make new note with properties {body:theBody}
             end tell
         end tell
         """
 
-    process = subprocess.run(
-        ["osascript", "-e", script], capture_output=True, text=True
-    )
+    process = run_osascript(script, folder_name, note_html)
 
     os.remove(temp_file_path)
 
@@ -58,17 +59,18 @@ def add_reminder():
     hour = due_dt.hour
     minute = due_dt.minute
 
-    script = f'''
+    script = f"""
+    set theTitle to item 1 of argv
     tell application "Reminders"
         set theDate to current date
         set year of theDate to {year}
         set month of theDate to {month}
         set day of theDate to {day}
         set time of theDate to ({hour} * hours + {minute} * minutes)
-        make new reminder with properties {{name:"{title}", due date:theDate}}
+        make new reminder with properties {{name:theTitle, due date:theDate}}
     end tell
-    '''
-    result = subprocess.run(["osascript", "-e", script], capture_output=True, text=True)
+    """
+    result = run_osascript(script, title)
 
     if result.returncode == 0:
         click.secho(f"\nReminder '{title}' added successfully.", fg="green")
