@@ -8,7 +8,8 @@ DEFAULT_TTL = 300  # 5 minutes
 
 
 def save_cache(note_map, notes_list):
-    os.makedirs(CACHE_DIR, exist_ok=True)
+    os.makedirs(CACHE_DIR, mode=0o700, exist_ok=True)
+    os.chmod(CACHE_DIR, 0o700)
     serializable_map = {str(k): list(v) for k, v in note_map.items()}
     data = {
         "timestamp": time.time(),
@@ -17,6 +18,7 @@ def save_cache(note_map, notes_list):
     }
     with open(CACHE_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f)
+    os.chmod(CACHE_FILE, 0o600)
 
 
 def load_cache(ttl=DEFAULT_TTL):
