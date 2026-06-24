@@ -21,22 +21,22 @@ def test_rem(mock_get_reminder):
     assert "Your Reminders:" in result.output
 
 
-@patch("memo_helpers.delete_memo.subprocess.run")
+@patch("memo_helpers.delete_memo.run_osascript")
 @patch("memo.memo.get_reminder")
-def test_rem_complete(mock_get_reminder, mock_subprocess):
+def test_rem_complete(mock_get_reminder, mock_run):
     mock_get_reminder.return_value = [FAKE_REMINDERS_MAP, FAKE_REMINDERS_LIST]
-    mock_subprocess.return_value = MagicMock(returncode=0, stderr="", stdout="")
+    mock_run.return_value = MagicMock(returncode=0, stderr="", stdout="")
     runner = CliRunner()
     result = runner.invoke(cli, ["rem", "--complete"], input="1")
     assert result.exit_code == 0
     assert "Reminder marked successfully as completed." in result.output
 
 
-@patch("memo_helpers.delete_memo.subprocess.run")
+@patch("memo_helpers.delete_memo.run_osascript")
 @patch("memo.memo.get_reminder")
-def test_rem_delete(mock_get_reminder, mock_subprocess):
+def test_rem_delete(mock_get_reminder, mock_run):
     mock_get_reminder.return_value = [FAKE_REMINDERS_MAP, FAKE_REMINDERS_LIST]
-    mock_subprocess.return_value = MagicMock(returncode=0, stderr="", stdout="")
+    mock_run.return_value = MagicMock(returncode=0, stderr="", stdout="")
     runner = CliRunner()
     result = runner.invoke(cli, ["rem", "--delete"], input="1")
     assert result.exit_code == 0
