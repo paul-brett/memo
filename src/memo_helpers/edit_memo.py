@@ -71,61 +71,67 @@ def edit_note(note_id):
         temp_file.write(original_md.encode("utf-8"))
         temp_file_path = temp_file.name
 
-    if image_map:
-        click.secho(
-            f"\nℹ️ This note contains {len(image_map)} image(s), shown as [MEMO_IMG_N] placeholders.",
-            fg="cyan",
-        )
-        click.secho(
-            "Keep placeholders to preserve images, remove them to delete images.",
-            fg="cyan",
-        )
+    # The temp file holds the (decrypted) note body in plaintext; remove it on
+    # every exit path so a copy is not left behind in /tmp (SEC-2).
+    try:
+        if image_map:
+            click.secho(
+                f"\nℹ️ This note contains {len(image_map)} image(s), shown as [MEMO_IMG_N] placeholders.",
+                fg="cyan",
+            )
+            click.secho(
+                "Keep placeholders to preserve images, remove them to delete images.",
+                fg="cyan",
+            )
 
-    editor = os.getenv("EDITOR", "vim")
-    subprocess.run([editor, temp_file_path])
+        editor = os.getenv("EDITOR", "vim")
+        subprocess.run([editor, temp_file_path])
 
-    with open(temp_file_path, "r", encoding="utf-8") as file:
-        edited_md = file.read().strip()
+        with open(temp_file_path, "r", encoding="utf-8") as file:
+            edited_md = file.read().strip()
 
-    if edited_md == original_md:
-        click.secho("\nNo changes made.", fg="yellow")
-        return
+        if edited_md == original_md:
+            click.secho("\nNo changes made.", fg="yellow")
+            return
 
-    # Determine which images the user kept (placeholder still present)
-    surviving_images = {}
-    if image_map:
-        for key, img_html in image_map.items():
-            if key in edited_md:
-                surviving_images[key] = img_html
-        # Remove placeholders before converting to HTML
-        for key in image_map:
-            edited_md = edited_md.replace(key, "")
+        # Determine which images the user kept (placeholder still present)
+        surviving_images = {}
+        if image_map:
+            for key, img_html in image_map.items():
+                if key in edited_md:
+                    surviving_images[key] = img_html
+            # Remove placeholders before converting to HTML
+            for key in image_map:
+                edited_md = edited_md.replace(key, "")
 
-    edited_html = mistune.markdown(edited_md)
+        edited_html = mistune.markdown(edited_md)
 
-    update_script = """
-        set theNoteId to item 1 of argv
-        set theBody to item 2 of argv
-        tell application "Notes"
-            set selectedNote to first note whose id is theNoteId
-            set body of selectedNote to theBody
-        end tell
-        """
-    process = run_osascript(update_script, note_id, edited_html)
-    if process.returncode != 0:
-        click.secho("\nError: Could not update note.\n", fg="red")
-        click.secho(process.stderr, fg="red")
-        return
+        update_script = """
+            set theNoteId to item 1 of argv
+            set theBody to item 2 of argv
+            tell application "Notes"
+                set selectedNote to first note whose id is theNoteId
+                set body of selectedNote to theBody
+            end tell
+            """
+        process = run_osascript(update_script, note_id, edited_html)
+        if process.returncode != 0:
+            click.secho("\nError: Could not update note.\n", fg="red")
+            click.secho(process.stderr, fg="red")
+            return
 
-    # Re-add images as attachments (set body strips inline base64 images)
-    if surviving_images:
-        _reattach_images(note_id, surviving_images)
-        click.secho(
-            f"\nNote updated. {len(surviving_images)} image(s) preserved.",
-            fg="green",
-        )
-    else:
-        click.secho("\nNote updated.", fg="green")
+        # Re-add images as attachments (set body strips inline base64 images)
+        if surviving_images:
+            _reattach_images(note_id, surviving_images)
+            click.secho(
+                f"\nNote updated. {len(surviving_images)} image(s) preserved.",
+                fg="green",
+            )
+        else:
+            click.secho("\nNote updated.", fg="green")
+    finally:
+        if os.path.exists(temp_file_path):
+            os.remove(temp_file_path)
 
 
 def edit_reminder(reminder_id, part_to_edit):
